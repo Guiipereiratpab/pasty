@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-commerce Seguro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen">
+
+    <!-- BARRA DE NAVEGAÇÃO -->
+    <nav class="bg-blue-600 text-white p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">TechStore Security</h1>
+            <div id="nav-user" class="hidden flex items-center gap-4">
+                <span id="user-greeting" class="font-medium"></span>
+                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-bold transition">Sair</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 mt-8">
+        <!-- TELA DE LOGIN -->
+        <div id="login-section" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold mb-6 text-center text-gray-700">Acesso Restrito</h2>
+            <form id="login-form" onsubmit="login(event)" class="flex flex-col gap-4">
+                <div>
+                    <label class="block text-sm font-bold mb-1">Usuário</label>
+                    <input type="text" id="username" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" required placeholder="Ex: joaosilva123">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-1">Senha</label>
+                    <input type="password" id="password" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" required value="SenhaForte@123">
+                </div>
+                <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700 transition">Entrar</button>
+                <p id="login-error" class="text-red-500 text-sm hidden text-center font-medium"></p>
+            </form>
+            <div class="mt-4 text-sm text-gray-500 text-center">
+                Dica: Ligue o gerador na API e use um dos usuários gerados no terminal.
+            </div>
+        </div>
+
+        <!-- TELA DA LOJA (Oculta até o login) -->
+        <div id="store-section" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                
+                <!-- PRODUTOS -->
+                <div class="md:col-span-2">
+                    <h2 class="text-2xl font-bold mb-4 border-b pb-2">Produtos Disponíveis</h2>
+                    <div id="products-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Produtos serão injetados aqui -->
+                    </div>
+                </div>
+
+                <!-- MEUS PEDIDOS -->
+                <div>
+                    <h2 class="text-2xl font-bold mb-4 border-b pb-2">Minhas Entregas</h2>
+                    <div id="orders-list" class="bg-white rounded-lg shadow-md p-4 flex flex-col gap-3 max-h-[600px] overflow-y-auto">
+                        <!-- Pedidos serão injetados aqui -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT DE INTEGRAÇÃO COM A API -->
+    <script>
+        const API_URL = "http://127.0.0.1:8000";
+        let token = localStorage.getItem("token");
+
+        // Verifica se já está logado ao abrir a página
+        if (token) {
+            showStore();
+        }
+
+        // Função de Login
+        async function login(event) {
+            event.preventDefault();
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const errorMsg = document.getElementById('login-error');
+
+            // OAuth2 exige formulário URL-encoded
+            const formData = new URLSearchParams();
+            formData.append('username', user);
+            formData.append('password', pass);
+
+            try {
+                const response = await fetch(`${API_URL}/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("Usuário ou senha incorretos");
+
+                const data = await response.json();
+                token = data.access_token;
+                localStorage.setItem("token", token);
+                localStorage.setItem("username", user);
+                
+                errorMsg.classList.add("hidden");
+                showStore();
+            } catch (error) {
+                errorMsg.textContent = error.message;
+                errorMsg.classList.remove("hidden");
+            }
+        }
+
+        // Logout
+        function logout() {
+            token = null;
+            localStorage.removeItem("token");
+            localStorage.removeItem("username");
+            document.getElementById('login-section').classList.remove("hidden");
+            document.getElementById('store-section').classList.add("hidden");
+            document.getElementById('nav-user').classList.add("hidden");
+        }
+
+        // Exibir a loja
+        function showStore() {
+            document.getElementById('login-section').classList.add("hidden");
+            document.getElementById('store-section').classList.remove("hidden");
+            document.getElementById('nav-user').classList.remove("hidden");
+            document.getElementById('user-greeting').textContent = `Olá, ${localStorage.getItem("username")}`;
+            
+            loadProducts();
+            loadOrders();
+        }
+
+        // Carregar Produtos
+        async function loadProducts() {
+            const res = await fetch(`${API_URL}/products`);
+            const products = await res.json();
+            const container = document.getElementById('products-list');
+            container.innerHTML = '';
+
+            products.forEach(p => {
+    const card = document.createElement('div');
+    card.className = "bg-white p-4 rounded-lg shadow border flex flex-col justify-between";
+    
+    // Adicionamos a tag <img> aqui e ajustamos o layout
+    card.innerHTML = `
+        <div class="flex flex-col items-center mb-4">
+            <img src="${p.image_url || 'https://via.placeholder.com/150'}" alt="${p.name}" class="h-40 object-contain mb-4">
+            <h3 class="font-bold text-lg text-center w-full">${p.name}</h3>
+            <p class="text-gray-500 w-full text-center">Estoque: ${p.stock} un.</p>
+        </div>
+        <div class="mt-auto flex justify-between items-center w-full">
+            <span class="text-xl font-bold text-green-600">R$ ${p.price.toFixed(2)}</span>
+            <button onclick="buyProduct(${p.id})" class="${p.stock > 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'} text-white px-4 py-2 rounded font-bold transition" ${p.stock === 0 ? 'disabled' : ''}>
+                ${p.stock > 0 ? 'Comprar' : 'Esgotado'}
+            </button>
+        </div>
+    `;
+    container.appendChild(card);
+});
+        }
+
+        // Comprar Produto
+        async function buyProduct(id) {
+            try {
+                const res = await fetch(`${API_URL}/buy/${id}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.status === 401) { logout(); return; }
+                const data = await res.json();
+                
+                alert(data.message); // Exibe aviso de compra aprovada
+                loadProducts(); // Atualiza estoque na tela
+                loadOrders(); // Atualiza lista de entregas
+            } catch (error) {
+                alert("Erro ao processar compra.");
+            }
+        }
+
+        // Carregar Histórico de Entregas
+        async function loadOrders() {
+            const res = await fetch(`${API_URL}/my-orders`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (res.status === 401) { logout(); return; }
+            const orders = await res.json();
+            const container = document.getElementById('orders-list');
+            container.innerHTML = '';
+
+            if (orders.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 italic text-center">Nenhuma compra realizada ainda.</p>';
+                return;
+            }
+
+            // Exibe do mais recente para o mais antigo
+            orders.reverse().forEach(o => {
+                const item = document.createElement('div');
+                item.className = "border-l-4 border-blue-500 bg-gray-50 p-3 rounded shadow-sm text-sm";
+                item.innerHTML = `
+                    <div class="font-bold text-gray-700">Pedido #${o.id}</div>
+                    <div class="text-blue-600 font-medium mt-1">${o.status}</div>
+                `;
+                container.appendChild(item);
+            });
+        }
+    </script>
+</body>
+</html>
