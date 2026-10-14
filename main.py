@@ -23,7 +23,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # Banco de dados SQLite (em produção use PostgreSQL)
-SQLALCHEMY_DATABASE_URL = "sqlite:///./ecommerce_seguro_v3.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///./ecommerce_seguro_v4.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -145,7 +145,6 @@ generator_state = {"is_active": False}
 
 async def generate_users_loop():
     while True:
-        # Verifica se o gerador está ligado no painel (Swagger)
         if generator_state.get("is_active"):
             db = SessionLocal()
             try:
@@ -163,22 +162,22 @@ async def generate_users_loop():
                 )
                 db.add(fake_user)
                 db.commit()
-                db.refresh(fake_user) # Necessário para pegar o ID gerado pelo banco
+                db.refresh(fake_user)
+                
+                # 1.1 Imprime a criação do usuário
+                hora_atual = datetime.now().strftime('%H:%M:%S')
+                print(f"[{hora_atual}] 👤 Novo usuário criado: {fake_user.username}")
                 
                 # ==========================================
                 # 2. COMPRA AUTOMÁTICA ALEATÓRIA
                 # ==========================================
-                # Busca TODOS os produtos que ainda têm estoque (> 0)
                 produtos_disponiveis = db.query(ProductDB).filter(ProductDB.stock > 0).all()
                 
                 if produtos_disponiveis:
-                    # Escolhe um produto aleatoriamente da lista
                     produto_escolhido = random.choice(produtos_disponiveis)
                     
-                    # Diminui o estoque
                     produto_escolhido.stock -= 1
                     
-                    # Registra o pedido vinculado ao usuário criado
                     novo_pedido = OrderDB(
                         user_id=fake_user.id,
                         product_id=produto_escolhido.id,
@@ -187,22 +186,20 @@ async def generate_users_loop():
                     db.add(novo_pedido)
                     db.commit()
                     
+                    # 2.1 Imprime a realização da compra
                     hora_atual = datetime.now().strftime('%H:%M:%S')
-                    print(f"[{hora_atual}] ✅ Sucesso: {fake_user.username} comprou '{produto_escolhido.name}'!")
+                    print(f"[{hora_atual}] 🛒 Compra realizada: {fake_user.username} comprou '{produto_escolhido.name}'")
                 else:
                     hora_atual = datetime.now().strftime('%H:%M:%S')
-                    print(f"[{hora_atual}] ⚠️ Aviso: {fake_user.username} criado, mas a loja está sem estoque.")
+                    print(f"[{hora_atual}] ⚠️ Compra ignorada: A loja está sem estoque.")
                     
             except Exception as e:
-                # Se der erro (ex: CPF repetido gerado pelo Faker), desfaz a transação para não quebrar o banco
                 db.rollback()
                 hora_atual = datetime.now().strftime('%H:%M:%S')
                 print(f"[{hora_atual}] ❌ Erro no gerador: {e}")
             finally:
-                # SEMPRE fecha a conexão com o banco para liberar memória
                 db.close()
         
-        # Aguarda 60 segundos antes de tentar de novo (mesmo se estiver desligado)
         await asyncio.sleep(60)
 @app.on_event("startup")
 async def startup_event():
