@@ -33,11 +33,29 @@
                     <input type="password" id="password" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" required value="SenhaForte@123">
                 </div>
                 <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700 transition">Entrar</button>
+                <button type="button" onclick="toggleSignup()" class="text-blue-600 text-sm font-bold mt-2 hover:underline">Não tem conta? Cadastre-se</button>
                 <p id="login-error" class="text-red-500 text-sm hidden text-center font-medium"></p>
             </form>
             <div class="mt-4 text-sm text-gray-500 text-center">
                 Dica: Ligue o gerador na API e use um dos usuários gerados no terminal.
             </div>
+        </div>
+
+        <!-- TELA DE CADASTRO -->
+        <div id="signup-section" class="hidden max-w-md mx-auto bg-white p-8 rounded-lg shadow-md mt-4">
+            <h2 class="text-2xl font-bold mb-6 text-center text-gray-700">Criar Nova Conta</h2>
+            <form id="signup-form" onsubmit="registerUser(event)" class="flex flex-col gap-3">
+            <input type="text" id="reg-username" class="border p-2 rounded" required placeholder="Nome de usuário">
+            <input type="password" id="reg-password" class="border p-2 rounded" required placeholder="Senha">
+            <input type="text" id="reg-fullname" class="border p-2 rounded" required placeholder="Nome Completo">
+            <input type="text" id="reg-cpf" class="border p-2 rounded" required placeholder="CPF">
+            <input type="text" id="reg-address" class="border p-2 rounded" required placeholder="Endereço de Entrega">
+            <input type="text" id="reg-phone" class="border p-2 rounded" required placeholder="Telefone">
+            <input type="text" id="reg-card" class="border p-2 rounded" required placeholder="Cartão de Crédito">
+            <button type="submit" class="bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700">Cadastrar</button>
+            <button type="button" onclick="toggleSignup()" class="text-gray-500 text-sm mt-2 hover:underline">Voltar para o Login</button>
+            <p id="signup-msg" class="text-sm hidden text-center font-medium mt-2"></p>
+            </form>
         </div>
 
         <!-- TELA DA LOJA (Oculta até o login) -->
@@ -204,6 +222,48 @@
                 container.appendChild(item);
             });
         }
+    function toggleSignup() {
+        document.getElementById('login-section').classList.toggle('hidden');
+        document.getElementById('signup-section').classList.toggle('hidden');
+    }
+
+    async function registerUser(event) {
+        event.preventDefault();
+        const msgBox = document.getElementById('signup-msg');
+        msgBox.classList.remove('hidden', 'text-red-500', 'text-green-500');
+    
+    const userData = {
+        username: document.getElementById('reg-username').value,
+        password: document.getElementById('reg-password').value,
+        full_name: document.getElementById('reg-fullname').value,
+        cpf: document.getElementById('reg-cpf').value,
+        address: document.getElementById('reg-address').value,
+        phone: document.getElementById('reg-phone').value,
+        credit_card: document.getElementById('reg-card').value
+    };
+
+    try {
+        const response = await fetch(`${API_URL}/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) throw new Error(data.detail || "Erro ao cadastrar");
+        
+        msgBox.textContent = data.message;
+        msgBox.classList.add('text-green-500');
+        document.getElementById('signup-form').reset();
+        
+        // Volta para o login após 2 segundos
+        setTimeout(toggleSignup, 2000); 
+    } catch (error) {
+        msgBox.textContent = error.message;
+        msgBox.classList.add('text-red-500');
+    }
+}
     </script>
 </body>
 </html>

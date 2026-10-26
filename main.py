@@ -11,6 +11,9 @@ from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from faker import Faker
+from pydantic import BaseModel, Field
+from fastapi import HTTPException
+
 
 # ==========================================
 # CONFIGURAÇÕES DE SEGURANÇA E BANCO DE DADOS
@@ -66,9 +69,11 @@ Base.metadata.create_all(bind=engine)
 # ==========================================
 class UserCreate(BaseModel):
     username: str
-    password: str
+    # Exige no mínimo 8 caracteres
+    password: str = Field(..., min_length=8)
     full_name: str
-    cpf: str = Field(..., max_length=14)
+    # Exige exatamente 11 caracteres numéricos (0 a 9)
+    cpf: str = Field(..., min_length=11, max_length=11, pattern=r'^\d{11}$')
     address: str
     phone: str
     credit_card: str
@@ -79,6 +84,15 @@ class UserResponse(BaseModel):
     # Omitindo propositalmente senha, CPF completo e cartão de crédito na resposta (Data Masking)
     class Config:
         orm_mode = True
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    full_name: str
+    cpf: str = Field(..., max_length=14)
+    address: str
+    phone: str
+    credit_card: str
 
 class ProductCreate(BaseModel):
     name: str
@@ -264,6 +278,28 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         )
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/signup")
+def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    # Verifica se username ou CPF já existem
+    if db.query(UserDB).filter(UserDB.username == user.username).first():
+        raise HTTPException(status_code=400, detail="Nome de usuário já em uso")
+    if db.query(UserDB).filter(UserDB.cpf == user.cpf).first():
+        raise HTTPException(status_code=400, detail="CPF já cadastrado")
+    
+    # Salva o novo usuário com a senha criptografada
+    novo_usuario = UserDB(
+        username=user.username,
+        hashed_password=get_password_hash(user.password),
+        full_name=user.full_name,
+        cpf=user.cpf,
+        address=user.address,
+        phone=user.phone,
+        credit_card=user.credit_card
+    )
+    db.add(novo_usuario)
+    db.commit()
+    return {"message": "Usuário cadastrado com sucesso! Você já pode fazer login."}
 
 # 3. PRODUTOS E COMPRAS (E-COMMERCE)
 @app.get("/products")
