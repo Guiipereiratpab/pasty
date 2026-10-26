@@ -15,6 +15,9 @@ from pydantic import BaseModel, Field
 from fastapi import HTTPException
 
 
+
+
+
 # ==========================================
 # CONFIGURAÇÕES DE SEGURANÇA E BANCO DE DADOS
 # ==========================================
@@ -339,3 +342,59 @@ def buy_product(product_id: int, current_user: UserDB = Depends(get_current_user
 def my_orders(current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
     orders = db.query(OrderDB).filter(OrderDB.user_id == current_user.id).all()
     return orders
+
+@app.get("/admin/dump")
+def dump_database(db: Session = Depends(get_db)):
+    usuarios = [{"id": u.id, "usuario": u.username, "cpf": u.cpf} for u in db.query(UserDB).all()]
+    produtos = [{"id": p.id, "nome": p.name, "estoque": p.stock} for p in db.query(ProductDB).all()]
+    pedidos = [{"id": o.id, "status": o.status} for o in db.query(OrderDB).all()]
+    
+    return {
+        "usuarios": usuarios,
+        "produtos": produtos,
+        "pedidos": pedidos
+    }
+
+async def compras_aleatorias_usuarios_antigos():
+    while True:
+        # Sorteia um tempo de espera entre 60 (1 min) e 180 segundos (3 min)
+        tempo_espera = random.randint(60, 180)
+        await asyncio.sleep(tempo_espera)
+        
+        # Abre a conexão com o banco
+        db = SessionLocal()
+        try:
+            # Busca todos os usuários e produtos disponíveis
+            usuarios = db.query(UserDB).all()
+            produtos = db.query(ProductDB).filter(ProductDB.stock > 0).all()
+            
+            # Se houver usuários e produtos em estoque, faz a compra
+            if usuarios and produtos:
+                comprador = random.choice(usuarios)
+                produto = random.choice(produtos)
+                
+                # Deduz do estoque
+                produto.stock -= 1
+                
+                # Registra o pedido
+                novo_pedido = OrderDB(
+                    user_id=comprador.id,
+                    product_id=produto.id,
+                    status="Aprovado"
+                )
+                
+                db.add(novo_pedido)
+                db.commit()
+                
+                print(f"🛒 [AUTO] {comprador.username} comprou {produto.name}!")
+        except Exception as e:
+            print(f"Erro na compra automática: {e}")
+        finally:
+            db.close() # Fecha a conexão para não travar o banco
+
+
+@app.on_event("startup")
+async def iniciar_compras_background():
+    # Cria a tarefa rodando em paralelo sem travar a API
+    asyncio.create_task(compras_aleatorias_usuarios_antigos())
+    print("🤖 Robô de compras aleatórias ativado!")

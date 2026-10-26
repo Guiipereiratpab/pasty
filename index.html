@@ -13,6 +13,9 @@
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-2xl font-bold">TechStore Security</h1>
             <div id="nav-user" class="hidden flex items-center gap-4">
+                <button onclick="showAdmin()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-lg shadow-emerald-500/30">
+                💾 Ver Banco
+                </button>
                 <span id="user-greeting" class="font-medium"></span>
                 <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-bold transition">Sair</button>
             </div>
@@ -80,6 +83,35 @@
 
             </div>
         </div>
+        <!-- ========================================= -->
+        <!-- PAINEL DO BANCO DE DADOS (ADMIN) -->
+        <!-- ========================================= -->
+    <div id="admin-section" class="hidden w-full max-w-7xl mx-auto bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100">
+        <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+            <div>
+            <h2 class="text-3xl font-extrabold text-slate-900">Visão Geral do Banco de Dados</h2>
+            <p class="text-slate-500 text-sm mt-1">Monitoramento em tempo real do SQLite</p>
+        </div>
+        <button onclick="closeAdmin()" class="bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 px-4 py-2 rounded-lg font-bold transition-all">
+            Voltar para a Loja
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-slate-900 rounded-2xl p-4 border border-slate-700">
+            <h3 class="font-bold text-emerald-400 mb-3 flex items-center gap-2">👤 Usuários Cadastrados</h3>
+            <pre id="admin-users" class="text-[11px] text-slate-300 overflow-auto max-h-[500px] custom-scrollbar"></pre>
+        </div>
+        <div class="bg-slate-900 rounded-2xl p-4 border border-slate-700">
+            <h3 class="font-bold text-indigo-400 mb-3 flex items-center gap-2">📦 Produtos no Catálogo</h3>
+            <pre id="admin-products" class="text-[11px] text-slate-300 overflow-auto max-h-[500px] custom-scrollbar"></pre>
+        </div>
+        <div class="bg-slate-900 rounded-2xl p-4 border border-slate-700">
+            <h3 class="font-bold text-amber-400 mb-3 flex items-center gap-2">🛒 Pedidos Registrados</h3>
+            <pre id="admin-orders" class="text-[11px] text-slate-300 overflow-auto max-h-[500px] custom-scrollbar"></pre>
+        </div>
+    </div>
+    </div>
     </div>
 
     <!-- SCRIPT DE INTEGRAÇÃO COM A API -->
@@ -263,6 +295,34 @@
         msgBox.textContent = error.message;
         msgBox.classList.add('text-red-500');
     }
+}
+
+    async function showAdmin() {
+        // Esconde a loja e mostra o painel
+        document.getElementById('store-section').classList.add('hidden');
+     document.getElementById('admin-section').classList.remove('hidden');
+    
+        try {
+            const res = await fetch(`${API_URL}/admin/dump`);
+            const data = await res.json();
+        
+            // O JSON.stringify(obj, null, 2) transforma os dados crus em um texto formatado e bonito
+            document.getElementById('admin-users').textContent = JSON.stringify(data.usuarios, null, 2);
+            document.getElementById('admin-products').textContent = JSON.stringify(data.produtos, null, 2);
+            document.getElementById('admin-orders').textContent = JSON.stringify(data.pedidos, null, 2);
+        } catch (error) {
+        console.error("Erro ao buscar banco de dados:", error);
+        }
+    }
+
+function closeAdmin() {
+    // Esconde o painel e volta para a loja
+    document.getElementById('admin-section').classList.add('hidden');
+    document.getElementById('store-section').classList.remove('hidden');
+    
+    // Atualiza a loja caso compras automáticas tenham ocorrido
+    loadProducts();
+    loadOrders();
 }
     </script>
 </body>
