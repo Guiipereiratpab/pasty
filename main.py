@@ -13,7 +13,8 @@ from jose import JWTError, jwt
 from faker import Faker
 from pydantic import BaseModel, Field
 from fastapi import HTTPException
-
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 
 
